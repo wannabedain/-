@@ -1,0 +1,504 @@
+---
+title: "빅분기R"
+author: "wjdekdls"
+date: "2023-02-13"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+
+<표 1-2> 기본 통계함수
+/
+mean() : 산술평균
+cor() : 상관계수
+sort() : 오름(내림)차순 정리
+cov() : 공분산
+median() : 중앙값
+summary() : 요약 통계량
+quantile() : 분위수
+cumsum() : 누적 합
+diff() : 원소 사이의 차이
+lag() : 시차 변수 만들기
+var() : 분산
+sd() : 표준편차
+
+
+```{r}
+library(dplyr)
+df = read.csv('/Users/jeongdain/Downloads/train.csv')
+df
+```
+
+
+```{r}
+library(openxlsx)
+excel_sample1<-read.xlsx("http://kanggc.iptime.org/book/data/sample1-n.xlsx")
+excel_sample1_dat<- data.matrix(excel_sample1)
+year<-excel_sample1_dat[,1]
+gdp<-excel_sample1_dat[,2]
+consumption<-excel_sample1_dat[,3]
+data1<-excel_sample1_dat[1:10,]
+data1
+```
+
+```{r}
+library(openxlsx)
+sample1<-read.xlsx("http://kanggc.iptime.org/book/data/stat-1.xlsx", sheet=1, startRow=1, colNames = T)
+```
+
+
+
+```{r}
+df %>% mutate(Q1 = fivenum(Fare)[2], Q3= fivenum(Fare)[4], IQR = Q3- Q1) %>% 
+  filter((Fare<Q1-1.5*IQR | Q3+1.5*IQR<Fare & Sex == 'female' ))
+```
+
+```{r}
+str(df)
+```
+
+```{r}
+summary(df)
+quantile(df$Age, probs=c(0.05, 0.1, 0.9, 0.95), na.rm = T)
+```
+
+
+
+```{r}
+# rename() 
+library(reshape)
+ 
+Cars93_subset <- rename(Cars93_subset, 
++                       c(V1 = "V1_Manufacturer", 
++                         V2 = "V2_Model", 
++                         V3 = "V3_Type", 
++                         V4 = "V4_Min.Price", 
++                         V5 = "V5_Price"))
+```
+
+
+
+```{r}
+# 데이터에서 IQR을 활용해 Fare컬럼의 이상치를 찾고, 이상치 데이터의 여성 수를 구하시오
+
+df %>% mutate(Q1 = fivenum(Fare)[2], Q3= fivenum(Fare)[4], IQR = Q3- Q1) %>% 
+  filter((Fare<Q1-1.5*IQR | Q3+1.5*IQR<Fare & Sex == 'female' )) %>% 
+  nrow
+```
+
+
+
+```{r}
+# 주어진 데이터에서 이상치(소수점 나이)를 찾고 올림, 내림, 버림(절사)했을때 3가지 모두 이상치 'age' 평균을 구한 다음 모두 더하여 출력
+
+df %>% filter((Fare*10)%%10!=0) %>% 
+  mutate(pre1=ceiling(Fare),pre2=floor(Fare),pre3=trunc(Fare)) %>% 
+  select(pre1,pre2,pre3)  %>% 
+  apply(2,mean) # %>% sum
+```
+
+```{r}
+# 결측치 생성
+apply(is.na(df),2,sum) # f1에 31개
+```
+
+
+
+
+주어진 데이터에서 결측치가 80%이상 되는 컬럼은(변수는) 삭제하고, 80% 미만인 결측치가 있는 컬럼은 'city'별 중앙값으로 값을 대체하고 'f1'컬럼의 평균값을 출력하세요!
+
+```{r}
+df1 = df %>% group_by(Pclass) %>%
+  mutate(pre_f1 = ifelse(is.na(Age), median(Age, na.rm = T), Age))
+
+mean(df1$pre_f1)
+mean(df1$Age)
+```
+
+
+```{r}
+df = read.csv("/Users/jeongdain/Downloads/basic1.csv", sep = ',', header = T)
+
+# library("readxl")
+# my_data <- read_excel("my_file.xlsx", sheet = "data", col_names = T)
+```
+
+#'f4'컬럼 값이 'ENFJ'와 'INFP'인 'f1'의 표준편차 차이를 절대값으로 구하시오
+```{r}
+df %>% filter((f4 == 'ENFJ' | f4 == 'INFP')) %>%
+  group_by(f4) %>% summarise(value = sd(f1, na.rm= T)) %>%
+  select(value) 
+```
+
+
+# 주어진 데이터 중 basic1.csv에서 'f1'컬럼 결측 데이터를 제거하고, 
+'city'와 'f2'을 기준으로 묶어 합계를 구하고, 'city가 경기이면서 f2가 0'인 조건에 만족하는 f1 값을 구하시오
+
+```{r}
+df %>% filter(!is.na(f1)) %>% group_by(city,f2) %>% 
+  summarise(value=f1, value2= sum(f1)) %>% 
+  filter(city=='경기' & f2==0) %>% 
+  data.frame %>% select(value)
+```
+
+
+
+# 'f4'컬럼의 값이 'ESFJ'인 데이터를 'ISFJ'로 대체하고, 'city'가 '경기'이면서 'f4'가 'ISFJ'인 데이터 중 'age'컬럼
+```{r}
+df %>% mutate(pre_f4=ifelse(f4=='ESFJ','ISFJ',f4)) %>% 
+  filter(city=='경기' & pre_f4=='ISFJ') %>% 
+  summarise(city, pre_f4, value=age)
+
+df
+```
+
+#주어진 데이터에서 'f5'컬럼을 표준화(Standardization (Z-score Normalization))하고 그 중앙값을 구하시오
+
+```{r}
+library(caret)
+df1 = df %>% filter(!is.na(Age))
+```
+
+
+# 주어진 데이터에서 'f5'컬럼을 표준화(Standardization (Z-score Normalization))하고 그 중앙값을 구해
+```{r}
+sta=preProcess(df1)
+median(predict(sta,df1)$pre_f1,na.rm=T)
+```
+
+# min-max스케일링 기준 상하위 5% 구하기
+# 주어진 데이터에서 'f5'컬럼을 min-max 스케일 변환한 후, 상위 5%와 하위 5% 값의 합을 구하시오
+```{r}
+mm=preProcess(df,'range')
+df %>% mutate(mm_f5=predict(mm,df)$f5) %>% summarise(v1=quantile(mm_f5,0.95),v2=quantile(mm_f5,0.05)) %>% sum
+```
+
+
+
+```{r}
+library(caret)
+my_mode=function(data) {as.numeric(names(which.max(table(data))))}
+
+df1=df %>% mutate(pre_f1=ifelse(is.na(Age),my_mode(Age),Age)) %>%
+  filter(Age>=20) %>% reframe(Age, Fare)
+df1
+```
+
+# 상관관계 구하기
+# 주어진 데이터에서 상관관계를 구하고, quality와의 상관관계가 가장 큰 값과, 가장 작은 값을 구한 다음 더하시오!
+# 단, quality와 quality 상관관계 제외, 소수점 둘째 자리까지 출력
+```{r}
+library(dplyr)
+df=read.csv('../input/red-wine-quality-cortez-et-al-2009/winequality-red.csv')
+df %>% cor %>% data.frame %>% select(quality) %>% arrange(-quality) %>% slice(-1) %>% 
+    summarise(MAX=max(quality),MIN=min(quality)) %>% 
+    sum %>% round(2)
+```
+
+
+
+# city와 f4를 기준으로 f5의 평균값을 구한 다음, f5를 기준으로 상위 7개 값을 모두 더해 출력하시오 (소수점 둘째자리까지 출력)
+```{r}
+library(dplyr)
+df=read.csv('../input/bigdatacertificationkr/basic1.csv')
+df %>% group_by(city,f4) %>% summarise(value=mean(f5)) %>% 
+  arrange(-value) %>% data.frame %>% slice(1:7) %>% 
+  summarise(value=sum(value)) %>% round(2)
+```
+
+
+
+# 주어진 데이터 셋에서 age컬럼 상위 20개의 데이터를 구한 다음 
+# f1의 결측치를 중앙값으로 채운다.
+# 그리고 f4가 ISFJ와 f5가 20 이상인 
+# f1의 평균값을 출력하시오!
+```{r}
+df %>% arrange(-age) %>% slice(1:20) %>% 
+  mutate(pre_f1=ifelse(is.na(f1),median(f1,na.rm=T),f1)) %>% 
+  filter(f4=='ISFJ' & f5>=20) %>% 
+  summarise(value=mean(pre_f1))
+```
+
+
+# 주어진 데이터 셋에서 f2가 0값인 데이터를 age를 기준으로 오름차순 정렬하고
+# 앞에서 부터 20개의 데이터를 추출한 후 
+# f1 결측치(최소값)를 채우기 전과 후의 분산 차이를 계산하시오 (소수점 둘째 자리까지)
+```{r}
+df %>% filter(f2 == 0) %>% arrange(age) %>% slice(1:20) %>% 
+  mutate(f1_fill = ifelse(is.na(f1),min(f1,na.rm= T),f1)) %>%
+  summarise(be_var = var(f1, na.rm = T), af_var = var(f1_fill)) %>%
+  apply(1, diff) %>% abs %>% round(2)
+```
+
+
+
+# ### 2022년 5월 Sales의 중앙값을 구하시오
+```{r}
+library(lubridate)
+library(dplyr)
+df %>% mutate(year=year(Date),month=month(Date)) %>% filter(year==2022 & month==5) %>% summarise(value=median(Sales))
+```
+
+
+# 2022년 5월 Sales의 중앙값을 구하시오
+```{r}
+df %>% mutate(year=year(Date),month=month(Date)) %>% filter(year==2022 & month==5) %>% summarise(value=median(Sales))
+
+# 그 중에서 Date, Sales
+df1= df %>% mutate(year=year(Date),month=month(Date)) %>% filter(year==2022 & month==5) %>% select(Date, Sales) %>% data.frame
+```
+
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+df=read.csv('../input/bigdatacertificationkr/basic2.csv')
+df1=df %>% mutate(year=year(Date),month=month(Date),wday=wday(Date,label=T)) %>% 
+  filter(year==2022 & month==5) %>% data.frame
+
+end_mean=df1 %>% filter(wday %in% c('Sat','Sun')) %>% summarise(value=mean(Sales))
+day_mean=df1 %>% filter(!(wday %in% c('Sat','Sun'))) %>% summarise(value=mean(Sales))
+round(abs(end_mean-day_mean),2)
+```
+
+
+
+## 주어진 데이터에서 2022년 5월 주말과 평일의 sales컬럼 평균값 차이를 구하시오 (소수점 둘째자리까지 출력, 반올림)
+```{r}
+library(dplyr)
+library(lubridate)
+df=read.csv('../input/bigdatacertificationkr/basic2.csv')
+df1=df %>% mutate(year=year(Date),month=month(Date),wday=wday(Date,label=T)) %>% filter(year==2022 & month==5) %>% data.frame
+
+end_mean=df1 %>% filter(wday %in% c('Sat','Sun')) # %>% summarise(value=mean(Sales))
+day_mean=df1 %>% filter(!(wday %in% c('Sat','Sun'))) # %>% summarise(value=mean(Sales))
+```
+
+
+### basic1 데이터 중 'f4'를 기준으로 basic3 데이터 'f4'값을 기준으로 병합하고, 
+### 병합한 데이터에서 r2결측치를 제거한다음, 앞에서 부터 20개 데이터를 선택하고 'f2'컬럼 합을 구하시오
+```{r}
+library(dplyr)
+df1=read.csv('../input/bigdatacertificationkr/basic1.csv')
+df2=read.csv('../input/bigdatacertificationkr/basic3.csv')
+df1 %>% inner_join(df2,by='f4') %>% filter(r2!='') %>% head(20) %>% summarise(value=sum(f2))
+```
+
+
+
+## 나이 구간 나누기
+###  basic1 데이터 중 'age'컬럼 이상치를 제거하고, 동일한 개수로 나이 순으로 3그룹으로 나눈 뒤 각 그룹의 중앙값을 더하시오
+### (이상치는 음수(0포함), 소수점 값)
+
+```{r}
+library(dplyr)
+library(ggplot2)
+df=read.csv('../input/bigdatacertificationkr/basic1.csv')
+df %>% filter((age*10)%%10==0 & age>0) %>% 
+  mutate(group=cut_number(age,3)) %>% group_by(group) %>% 
+  summarise(med=median(age)) %>% 
+  summarise(value=sum(med))
+
+
+
+library(dplyr)
+library(ggplot2)
+df=read.csv('../input/bigdatacertificationkr/basic1.csv')
+
+df %>% filter((age*10)%%10==0 & age>0) %>% mutate(group=cut_number(age,3)) %>% 
+  group_by(group) %>% mutate(med=median(age)) %>% summarise(value=mean(med))
+```
+
+
+```{r}
+bins <-c(0, 12, 24, 36, 48, 60, 72, 84, 97) 
+class <-cut(df$Age, breaks=bins)
+table(class)
+str(class)
+# names(x) <- c("id", "name", "score")
+# names(class) <= c("0번째", "12번째", "24번째", "36번째","48번째","60번째","72번째","84번째","97번째")
+# colnames(class)<-c("0번째", "12번째", "24번째", "36번째","48번째","60번째","72번째","84번째","97번째")
+hist(df$Age, breaks=bins, main="Test Scores", xlab="Age")
+```
+
+
+
+
+
+```{r}
+### 주어진 데이터(basic2.csv)에서 주 단위 Sales의 합계를 구하고, 가장 큰 값을 가진 주와 작은 값을 가진 주의 차이를 구하시오(절대값)
+### 데이터셋 : basic2.csv
+### 오른쪽 상단 copy&edit 클릭 -> 예상문제 풀이 시작
+
+library(readr)
+library(dplyr)
+df=read_csv('../input/bigdatacertificationkr/basic2.csv')
+df %>% mutate(week=cut(Date,breaks='week')) %>% group_by(week) %>% summarise(value=sum(Sales)) %>% summarise(MAX=max(value),MIN=min(value)) %>% apply(1,diff) %>% abs
+```
+
+
+
+### 주어진 데이터(basic2.csv)에서 주 단위 Sales의 합계를 구하고, 가장 큰 값을 가진 주와 작은 값을 가진 주의 차이를 구하시오(절대값)
+```{r}
+library(tidyr)
+library(readr)
+library(dplyr)
+df=read_csv('../input/bigdatacertificationkr/basic2.csv')
+df
+# df %>% mutate(week=cut(Date,breaks='week')) %>% group_by(week) %>% summarise(value=sum(Sales)) %>% summarise(MAX=max(value),MIN=min(value)) %>% apply(1,diff) %>% abs
+
+
+```
+
+
+```{r}
+data %>% 
+  mutate(Company=data$v1 %>%       # "Company" 컬럼을 아래의 내용으로 추가
+           str_split("\\s+") %>%   # 공백을 기준으로 분리
+           sapply(`[`,1),          # 리스트의 첫번째 항목에 대해 sapply 적용
+         .before=v1)               # "Company" 컬럼을 v1 컬럼 이전에 삽입
+```
+
+
+```{r}
+data$v1 %>% str_split("\\s+") %>% sapply(length)   # 각 리스트의 원소 개수 파악
+[1] 3 3 3 4 2 2
+
+
+data$v1 %>% str_split("\\s+") %>% sapply(length) %>% max() # 최대 원소 개수 파악
+[1] 4
+최대 원소 개수가 4개다. 따라서 4개의 컬럼이 추가될 것이다.
+
+data %>% 
+  mutate(com1=data$v1 %>%      
+           str_split("\\s+") %>%  
+           sapply(`[`,1), 
+         com2=data$v1 %>%      
+           str_split("\\s+") %>%   
+           sapply(`[`,2),
+         com3=data$v1 %>%       
+           str_split("\\s+") %>%   
+           sapply(`[`,3), 
+         com4=data$v1 %>%       
+           str_split("\\s+") %>%   
+           sapply(`[`,4), 
+         .before=v1)               # "Company" 컬럼을 v1 컬럼 이전에 삽입
+```
+
+
+
+```{r}
+### f1의 결측치를 채운 후 age 컬럼의 중복 제거 전과 후의 중앙값의 차이를 구하시오 
+### 결측치는 f1의 데이터 중 10번째 큰 값으로 채움
+### 중복 데이터 발생시 뒤에 나오는 데이터를 삭제함
+### 최종 결과값은 절대값으로 출력
+
+# 데이터셋 : basic1.csv
+# 오른쪽 상단 copy&edit 클릭 -> 예상문제 풀이 시작
+
+library(dplyr)
+df=read.csv('../input/bigdatacertificationkr/basic1.csv')
+
+df %>% mutate(pre_f1=ifelse(is.na(f1),sort(f1,decreasing=T)[10],f1),remove_age=ifelse(duplicated(age),NA,pre_f1)) %>% summarise(be_med=median(pre_f1),af_med=median(remove_age,na.rm=T)) %>% apply(1,diff) %>% abs
+
+```
+
+
+
+
+```{r}
+### 주어진 데이터(basic2.csv)에서 새로운 컬럼(1일 이전 시차 컬럼)을 만들고, Events가 1이면서 Sales가 1000000이하인 조건에 맞는 새로운 컬럼 합을 구하시오
+### 데이터셋 : basic2.csv
+### 오른쪽 상단 copy&edit 클릭 -> 예상문제 풀이 시작
+
+library(dplyr)
+library(data.table)
+df=read.csv('../input/bigdatacertificationkr/basic2.csv')
+df %>% mutate(lag=shift(PV,1)) %>% filter(Events==1 & Sales<=1000000) %>% summarise(value=sum(lag))
+```
+
+
+```{r}
+
+par(mfrow=c(2,1)) # 한 페이지에 그림을 위 아래로 나누어 그림
+hist(df$Pclass)
+plot(df$Age, df$Fare, # type="l", lty=1, 
+     main="Consumption of Korea(2000-2016)")
+
+
+counts<-table(df$PassengerId, df$Pclass)
+barplot(counts, main="Bar Chart of Total Score", xlab="Pclass")
+
+
+
+par(mfrow=c(1,2)) # 한 페이지에 그림을 좌우로 2개 나누어 그림 > boxplot(mid, main="Box plot of mid")
+boxplot(df$Age, main="Box plot of final")
+boxplot(df$Fare, main="Box plot of total")
+
+```
+
+
+#1-3. date_added가 2018년 1월 이면서 country가 United Kingdom 단독 제작인 데이터의 갯수
+```{r}
+df <-read.csv("../input/big-data-analytics-certification-kr-2022/nf.csv")
+library(dplyr)
+library(lubridate)
+df$date_added<-mdy(df$date_added)
+ans<-df%>%mutate(year=year(date_added),month=month(date_added))%>%filter(year=='2018'&month=='1'&country=='United Kingdom')%>%nrow
+cat(ans)
+```
+
+
+
+# 1-4.그런데 만약 'coutnry'컬럼에 대소문자 함께 있고, 띄어쓰기가 있는 것도 있고 없는 것도 있다면?
+```{r}
+df <-read.csv("../input/big-data-analytics-certification-kr-2022/nf.csv")
+library(dplyr)
+library(lubridate)
+df$date_added<-mdy(df$date_added)
+ans<-df%>%
+  mutate(year=year(date_added),month=month(date_added),pre_country=tolower(gsub(" ","",country)))%>%
+  filter(year=='2018'&month=='1'&pre_country=='unitedkingdom')%>%
+  nrow
+
+cat(ans)
+```
+
+
+
+```{r}
+########################## Q1 ##########################
+# 데이터셋(basic1.csv)의 'f5' 컬럼을 기준으로 상위 10개의 데이터를 구하고,
+# 'f5'컬럼 10개 중 최소값으로 데이터를 대체한 후,
+# 'age'컬럼에서 80 이상인 데이터의'f5 컬럼 평균값 구하기
+library(dplyr)
+df1=read.csv('../input/bigdatacertificationkr/basic1.csv')
+df1 %>% arrange(-f5) %>% mutate(pre_f5=ifelse(f5>=f5[10],f5[10],f5)) %>% filter(age>=80) %>% summarise(value=mean(pre_f5))
+
+########################## Q2 ##########################
+# 데이터셋(basic1.csv)의 앞에서 순서대로 70% 데이터만 활용해서,
+# 'f1'컬럼 결측치를 중앙값으로 채우기 전후의 표준편차를 구하고
+# 두 표준편차 차이 계산하기
+df1 %>% head(nrow(df1)*0.7) %>% mutate(pre_f1=ifelse(is.na(f1),median(f1,na.rm=T),f1)) %>% summarise(be_sd=sd(f1,na.rm=T),af_sd=sd(pre_f1)) %>% apply(1,diff) %>% abs
+
+########################## Q2 ##########################
+# 데이터셋(basic1.csv)의 'age'컬럼의 이상치를 더하시오!
+# 단, 평균으로부터 '표준편차*1.5'를 벗어나는 영역을 이상치라고 판단함
+df1 %>% filter(age<mean(age)-1.5*sd(age) | mean(age)+1.5*sd(age)<age) %>% summarise(value=sum(age))
+```
+
+
+```{r}
+write.csv(
+  x,              # 파일에 저장할 데이터 프레임 또는 행렬
+  file="",        # 데이터를 저장할 파일명
+  row.names=TRUE  # TRUE면 행 이름을 CSV 파일에 포함하여 저장한다.
+)
+```
+
+
+
